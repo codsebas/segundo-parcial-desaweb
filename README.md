@@ -4,7 +4,8 @@
 > **Centro Universitario de Guastatoya — Facultad de Ingeniería**  
 > **Curso:** Desarrollo y Diseño Web (036) | Ciclo VIII  
 > **Catedrático:** Ing. Carlos Amílcar Tezo Palencia  
-> **Estudiante:** Albino Sebastián Rosales Ruano  
+> **Estudiante:** Albino Sebastián Rosales Ruano 
+> **Carnet:** 1890-23-12105
 > **Evaluación:** 2do. Examen Parcial (Valoración: 15 Puntos)  
 
 ---

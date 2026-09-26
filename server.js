@@ -26,11 +26,17 @@ const swaggerOptions = {
     .swagger-ui .info .title { color: #1e3a8a; font-family: system-ui, sans-serif; }
     .swagger-ui .btn.authorize { background-color: #2563eb; color: #fff; border-color: #2563eb; }
   `,
-  customSiteTitle: 'Swagger - Subastas Copart API'
+  customSiteTitle: 'Swagger - Subastas Copart API',
+  customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css',
+  customJs: [
+    'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js'
+  ]
 };
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
-app.use('/swagger', (req, res) => res.redirect('/api-docs'));
+app.get('/swagger', (req, res) => res.redirect('/api-docs'));
+app.get('/api/swagger.json', (req, res) => res.json(swaggerDocument));
 
 // Rutas de la API REST
 app.use('/api', apiRoutes);
