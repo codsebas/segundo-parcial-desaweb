@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Copart Guatemala — Subastas de Vehículos en Tiempo Real</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- BARRA DE ACCESO RÁPIDO PARA EVALUACIÓN DOCENTE -->
+  <div class="bg-blue-900 text-blue-100 text-xs py-2 px-4 border-b border-blue-800">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center gap-2">
+        <span class="bg-blue-700 px-2 py-0.5 rounded font-semibold text-white">UMG Parcial WebDev 2026</span>
+        <span>Acceso rápido con 3 cuentas de prueba (pruebas en múltiples navegadores):</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="app.quickLogin('comprador1@copart.com')" class="bg-blue-800 hover:bg-blue-700 text-white px-2.5 py-1 rounded transition text-xs flex items-center gap-1">
+          <i class="fa-solid fa-user-check text-green-400"></i> Comprador 1
+        </button>
+        <button onclick="app.quickLogin('comprador2@copart.com')" class="bg-blue-800 hover:bg-blue-700 text-white px-2.5 py-1 rounded transition text-xs flex items-center gap-1">
+          <i class="fa-solid fa-user-check text-yellow-400"></i> Comprador 2
+        </button>
+        <button onclick="app.quickLogin('publicador@copart.com')" class="bg-blue-800 hover:bg-blue-700 text-white px-2.5 py-1 rounded transition text-xs flex items-center gap-1">
+          <i class="fa-solid fa-bullhorn text-purple-300"></i> Publicador
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVEGACIÓN PRINCIPAL -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <!-- Logo y Título -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="app.navigate('home')">
+        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md">
+          <i class="fa-solid fa-gavel text-xl"></i>
+        </div>
+        <div>
+          <span class="font-extrabold text-xl text-blue-900 tracking-tight flex items-center gap-1">
+            COPART <span class="text-blue-600 font-light">GT</span>
+          </span>
+          <p class="text-[10px] text-slate-500 font-medium tracking-wide uppercase">Subastas de Vehículos en Vivo</p>
+        </div>
+      </div>
+
+      <!-- Enlaces de Navegación -->
+      <nav class="hidden md:flex items-center gap-6">
+        <button onclick="app.navigate('home')" id="nav-home" class="font-medium text-blue-600 hover:text-blue-700 transition flex items-center gap-1.5 py-2 border-b-2 border-blue-600">
+          <i class="fa-solid fa-car-side"></i> Inventario
+        </button>
+        <button onclick="app.navigate('publicar')" id="nav-publicar" class="font-medium text-slate-600 hover:text-blue-600 transition flex items-center gap-1.5 py-2 border-b-2 border-transparent">
+          <i class="fa-solid fa-circle-plus"></i> Publicar Vehículo
+        </button>
+        <button onclick="app.navigate('mis-vehiculos')" id="nav-mis-vehiculos" class="font-medium text-slate-600 hover:text-blue-600 transition flex items-center gap-1.5 py-2 border-b-2 border-transparent">
+          <i class="fa-solid fa-list-check"></i> Mis Publicaciones
+        </button>
+        <a href="/api-docs" target="_blank" class="font-medium text-slate-600 hover:text-blue-600 transition flex items-center gap-1.5 py-2 border-b-2 border-transparent">
+          <i class="fa-solid fa-code text-slate-400"></i> Swagger API
+        </a>
+      </nav>
+
+      <!-- Zona de Usuario -->
+      <div class="flex items-center gap-3" id="user-menu-container">
+        <!-- Renderizado dinámico desde app.js -->
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR DE ALERTAS TOAST -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- CUERPO PRINCIPAL DE VISTAS (SPA) -->
+  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+
+    <!-- ========================================== -->
+    <!-- VISTA 1: HOME E INVENTARIO CON FILTROS     -->
+    <!-- ========================================== -->
+    <section id="view-home" class="fade-in space-y-6">
+      
+      <!-- Banner Hero Informativo -->
+      <div class="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+        <div class="relative z-10 max-w-2xl">
+          <div class="inline-flex items-center gap-2 bg-blue-500/30 text-blue-100 text-xs font-semibold px-3 py-1 rounded-full mb-3 backdrop-blur-sm">
+            <span class="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+            Subastas en Vivo y en Directo
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2">
+            Encuentra y Oferta por Vehículos al Mejor Precio
+          </h1>
+          <p class="text-blue-100 text-sm sm:text-base leading-relaxed">
+            Plataforma estilo Copart con sincronización en tiempo real. Clasificación por estado de daño y transparencia garantizada en cada puja.
+          </p>
+        </div>
+        <div class="absolute -right-10 -bottom-10 opacity-10 text-white text-[180px] pointer-events-none">
+          <i class="fa-solid fa-car"></i>
+        </div>
+      </div>
+
+      <!-- BARRA DE BÚSQUEDA Y FILTROS MULTITAREA -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="relative w-full md:w-96">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input 
+              type="text" 
+              id="filter-search" 
+              placeholder="Buscar por marca, modelo, motor o año..." 
+              class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              oninput="app.debouncedSearch()"
+            >
+          </div>
+          <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+            <span id="catalogo-count" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+              Cargando vehículos...
+            </span>
+            <button onclick="app.resetFilters()" class="text-xs font-medium text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1">
+              <i class="fa-solid fa-rotate-left"></i> Limpiar Filtros
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros desplegables -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-100 text-xs">
+          <!-- Filtro Marca -->
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Marca</label>
+            <select id="filter-marca" onchange="app.onMarcaFilterChange()" class="w-full py-1.5 px-2 bg-slate-50 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500">
+              <option value="">Todas las marcas</option>
+            </select>
+          </div>
+
+          <!-- Filtro Modelo -->
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Modelo</label>
+            <select id="filter-modelo" onchange="app.applyFilters()" class="w-full py-1.5 px-2 bg-slate-50 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500">
+              <option value="">Todos los modelos</option>
+            </select>
+          </div>
+
+          <!-- Filtro Año -->
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Año</label>
+            <select id="filter-anio" onchange="app.applyFilters()" class="w-full py-1.5 px-2 bg-slate-50 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500">
+              <option value="">Todos los años</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+              <option value="2022">2022</option>
+              <option value="2021">2021</option>
+              <option value="2020">2020</option>
+              <option value="2019">2019</option>
+              <option value="2018">2018</option>
+            </select>
+          </div>
+
+          <!-- Filtro Combustible -->
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Combustible</label>
+            <select id="filter-combustible" onchange="app.applyFilters()" class="w-full py-1.5 px-2 bg-slate-50 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500">
+              <option value="">Todos</option>
+            </select>
+          </div>
+
+          <!-- Filtro Nivel de Daño -->
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Estado de Daño</label>
+            <select id="filter-dano" onchange="app.applyFilters()" class="w-full py-1.5 px-2 bg-slate-50 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 font-medium">
+              <option value="">Todos los estados</option>
+              <option value="VERDE">🟢 Verde (Menor/Limpio)</option>
+              <option value="AMARILLO">🟡 Amarillo (Reparable)</option>
+              <option value="ROJO">🔴 Rojo (Severo/Salvamento)</option>
+            </select>
+          </div>
+
+          <!-- Filtro Precio Máximo -->
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Precio Base Máx.</label>
+            <select id="filter-precio" onchange="app.applyFilters()" class="w-full py-1.5 px-2 bg-slate-50 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500">
+              <option value="">Cualquier precio</option>
+              <option value="40000">Hasta Q. 40,000</option>
+              <option value="60000">Hasta Q. 60,000</option>
+              <option value="80000">Hasta Q. 80,000</option>
+              <option value="120000">Hasta Q. 120,000</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRID DE VEHÍCULOS / SUBASTAS -->
+      <div id="vehiculos-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Renderizado dinámico de tarjetas -->
+      </div>
+
+      <!-- Estado Vacío -->
+      <div id="empty-state" class="hidden bg-white rounded-xl border border-slate-200 p-12 text-center">
+        <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+          <i class="fa-solid fa-car-tunnel"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-800 mb-1">No se encontraron vehículos</h3>
+        <p class="text-sm text-slate-500 max-w-md mx-auto mb-4">
+          No hay subastas que coincidan con los filtros seleccionados. Intenta restablecer los filtros para ver el catálogo completo.
+        </p>
+        <button onclick="app.resetFilters()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
+          Restablecer Filtros
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VISTA 2: DETALLE Y SUBASTA EN TIEMPO REAL  -->
+    <!-- ========================================== -->
+    <section id="view-detalle" class="hidden fade-in space-y-6">
+      <!-- Botón de regreso -->
+      <div>
+        <button onclick="app.navigate('home')" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition">
+          <i class="fa-solid fa-arrow-left"></i> Volver al Catálogo
+        </button>
+      </div>
+
+      <!-- Contenedor principal de la subasta -->
+      <div id="detalle-container" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Cargando... -->
+        <div class="col-span-12 text-center py-20">
+          <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-600 mb-3"></i>
+          <p class="text-slate-500 font-medium text-sm">Cargando detalles de la subasta...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VISTA 3: PUBLICACIÓN DE VEHÍCULO NUEVO     -->
+    <!-- ========================================== -->
+    <section id="view-publicar" class="hidden fade-in max-w-4xl mx-auto space-y-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-5 mb-6">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-circle-plus text-blue-600"></i> Publicar Vehículo para Subasta
+            </h2>
+            <p class="text-sm text-slate-500 mt-1">
+              Ingresa los datos técnicos completos del vehículo y sube al menos 5 fotografías para publicar la subasta.
+            </p>
+          </div>
+          <span class="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full border border-blue-200">
+            Paso Único
+          </span>
+        </div>
+
+        <form id="form-publicar" onsubmit="app.submitPublicacion(event)" class="space-y-6">
+          
+          <!-- SECCIÓN 1: FICHA TÉCNICA -->
+          <div>
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-600 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-screwdriver-wrench text-blue-500"></i> Ficha Técnica del Vehículo
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <!-- Año -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Año <span class="text-red-500">*</span></label>
+                <input type="number" id="pub-anio" min="1900" max="2030" value="2023" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <!-- Tipo de Artículo -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Tipo de Carrocería <span class="text-red-500">*</span></label>
+                <select id="pub-tipo" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">Selecciona tipo...</option>
+                </select>
+              </div>
+
+              <!-- Marca -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Marca <span class="text-red-500">*</span></label>
+                <select id="pub-marca" onchange="app.onPubMarcaChange()" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">Selecciona marca...</option>
+                </select>
+              </div>
+
+              <!-- Modelo -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Modelo <span class="text-red-500">*</span></label>
+                <select id="pub-modelo" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">Primero elija una marca...</option>
+                </select>
+              </div>
+
+              <!-- Motor -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Motor <span class="text-red-500">*</span></label>
+                <input type="text" id="pub-motor" placeholder="Ej. 2.0L 4-Cilindros Turbo" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <!-- Cilindros -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">No. Cilindros <span class="text-red-500">*</span></label>
+                <input type="number" id="pub-cilindros" min="1" max="16" value="4" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <!-- Transmisión -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Transmisión <span class="text-red-500">*</span></label>
+                <select id="pub-transmision" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">Selecciona transmisión...</option>
+                </select>
+              </div>
+
+              <!-- Combustible -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Tipo de Combustible <span class="text-red-500">*</span></label>
+                <select id="pub-combustible" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">Selecciona combustible...</option>
+                </select>
+              </div>
+
+              <!-- Tracción -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Tracción (Tren de manejo) <span class="text-red-500">*</span></label>
+                <select id="pub-traccion" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">Selecciona tracción...</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: ESTADO DE DAÑO Y CONDICIONES DE LA SUBASTA -->
+          <div class="pt-4 border-t border-slate-100">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-600 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-triangle-exclamation text-yellow-500"></i> Estado de Daño y Reglas de Subasta
+            </h3>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <!-- Clasificación de Daño -->
+              <div class="col-span-1 sm:col-span-2 md:col-span-1">
+                <label class="block font-semibold text-slate-700 mb-1">Clasificación de Daño <span class="text-red-500">*</span></label>
+                <select id="pub-dano" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-medium">
+                  <option value="">Selecciona estado...</option>
+                  <option value="1">🟢 Verde (Daño menor / Limpio)</option>
+                  <option value="2">🟡 Amarillo (Daño medio / Reparable)</option>
+                  <option value="3">🔴 Rojo (Daño severo / Salvamento)</option>
+                </select>
+              </div>
+
+              <!-- Precio Base -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">
+                  Monto Base (Q.) <span class="text-red-500">*</span>
+                  <span class="text-xs font-normal text-slate-400">(Mínimo Q. 20,000)</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2 text-slate-400 font-semibold">Q.</span>
+                  <input type="number" id="pub-precio-base" min="20000" step="500" value="25000" required class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+
+              <!-- Duración de la Subasta -->
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Duración de la Subasta <span class="text-red-500">*</span></label>
+                <select id="pub-duracion" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="24">24 Horas (1 Día)</option>
+                  <option value="48">48 Horas (2 Días)</option>
+                  <option value="72" selected>72 Horas (3 Días - Recomendado)</option>
+                  <option value="168">7 Días (1 Semana)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 3: GALERÍA FOTOGRÁFICA (MÍNIMO 5 FOTOS OBLIGATORIAS) -->
+          <div class="pt-4 border-t border-slate-100">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                <i class="fa-solid fa-images text-indigo-500"></i> Galería Fotográfica 
+                <span class="text-xs bg-red-100 text-red-700 font-semibold px-2 py-0.5 rounded-full border border-red-200">
+                  Mínimo 5 fotos obligatorias
+                </span>
+              </h3>
+              <!-- Botón auxiliar para calificar rápidamente -->
+              <button type="button" onclick="app.loadDemoPhotos()" class="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 transition flex items-center gap-1">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Cargar 5 Fotos Demo
+              </button>
+            </div>
+            
+            <p class="text-xs text-slate-500 mb-3">
+              Puedes subir imágenes desde tu equipo (JPEG, PNG, WEBP) o hacer clic en "Cargar 5 Fotos Demo" para autocompletar la galería requerida.
+            </p>
+
+            <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-blue-400 transition bg-slate-50">
+              <input type="file" id="pub-fotos-input" multiple accept="image/jpeg,image/png,image/webp" class="hidden" onchange="app.handlePhotoUpload(event)">
+              <label for="pub-fotos-input" class="cursor-pointer block">
+                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+                <p class="text-sm font-semibold text-slate-700">Haz clic para seleccionar imágenes</p>
+                <p class="text-xs text-slate-400">Formatos permitidos: PNG, JPG, WEBP</p>
+              </label>
+            </div>
+
+            <!-- Previsualización de Fotos Cargadas -->
+            <div id="fotos-preview-container" class="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <!-- Renderizado de miniaturas -->
+            </div>
+            <p id="fotos-count-status" class="text-xs font-medium text-slate-500 mt-2">
+              0 de 5 fotografías mínimas seleccionadas.
+            </p>
+          </div>
+
+          <!-- BOTÓN DE ENVÍO -->
+          <div class="pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
+            <button type="button" onclick="app.navigate('home')" class="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition text-sm">
+              Cancelar
+            </button>
+            <button type="submit" id="btn-submit-publicar" class="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md transition text-sm flex items-center gap-2">
+              <i class="fa-solid fa-check"></i> Publicar Vehículo
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VISTA 4: MIS PUBLICACIONES / GESTIÓN       -->
+    <!-- ========================================== -->
+    <section id="view-mis-vehiculos" class="hidden fade-in space-y-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-blue-600"></i> Mis Vehículos Publicados
+          </h2>
+          <p class="text-sm text-slate-500 mt-1">
+            Gestiona tus vehículos en subasta, busca por modelo y actualiza fichas técnicas según sea necesario.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="app.navigate('publicar')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-plus"></i> Nueva Publicación
+          </button>
+        </div>
+      </div>
+
+      <!-- Buscador en Mis Publicaciones -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="relative max-w-md">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+          <input 
+            type="text" 
+            id="mis-search" 
+            placeholder="Buscar en mis publicaciones..." 
+            class="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            oninput="app.loadMisVehiculos()"
+          >
+        </div>
+      </div>
+
+      <!-- Listado de Mis Publicaciones -->
+      <div id="mis-vehiculos-list" class="space-y-4">
+        <!-- Renderizado dinámico -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL: INICIO DE SESIÓN                    -->
+  <!-- ========================================== -->
+  <div id="modal-login" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative fade-in">
+      <button onclick="app.closeModal('modal-login')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 text-xl">
+          <i class="fa-solid fa-right-to-bracket"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900">Iniciar Sesión</h3>
+        <p class="text-xs text-slate-500 mt-1">Ingresa a tu cuenta para participar en pujas o publicar vehículos.</p>
+      </div>
+
+      <form onsubmit="app.submitLogin(event)" class="space-y-4 text-sm">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico</label>
+          <input type="email" id="login-correo" required placeholder="correo@ejemplo.com" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Contraseña</label>
+          <input type="password" id="login-contrasena" required placeholder="••••••••" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <button type="submit" id="btn-login" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition">
+          Ingresar
+        </button>
+      </form>
+
+      <div class="mt-5 text-center text-xs text-slate-500 border-t border-slate-100 pt-4">
+        ¿Aún no tienes cuenta? 
+        <button onclick="app.openModal('modal-registro')" class="text-blue-600 font-bold hover:underline">
+          Regístrate aquí
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: REGISTRO DE USUARIO                 -->
+  <!-- ========================================== -->
+  <div id="modal-registro" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative fade-in">
+      <button onclick="app.closeModal('modal-registro')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-3 text-xl">
+          <i class="fa-solid fa-user-plus"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900">Crear Cuenta</h3>
+        <p class="text-xs text-slate-500 mt-1">Regístrate para ofertar y publicar en Copart GT.</p>
+      </div>
+
+      <form onsubmit="app.submitRegistro(event)" class="space-y-3.5 text-sm">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nombre</label>
+            <input type="text" id="reg-nombre" required placeholder="Carlos" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Apellido</label>
+            <input type="text" id="reg-apellido" required placeholder="Méndez" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico</label>
+          <input type="email" id="reg-correo" required placeholder="carlos@ejemplo.com" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Teléfono</label>
+          <input type="tel" id="reg-telefono" required placeholder="50255551234" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Contraseña segura</label>
+          <input type="password" id="reg-contrasena" required minlength="6" placeholder="Mínimo 6 caracteres" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <button type="submit" id="btn-registro" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition mt-2">
+          Completar Registro
+        </button>
+      </form>
+
+      <div class="mt-4 text-center text-xs text-slate-500 border-t border-slate-100 pt-3">
+        ¿Ya tienes cuenta? 
+        <button onclick="app.openModal('modal-login')" class="text-blue-600 font-bold hover:underline">
+          Inicia sesión
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: EDICIÓN DE FICHA TÉCNICA            -->
+  <!-- ========================================== -->
+  <div id="modal-editar" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative fade-in">
+      <button onclick="app.closeModal('modal-editar')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="mb-4">
+        <h3 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-pen-to-square text-blue-600"></i> Editar Ficha Técnica
+        </h3>
+        <p class="text-xs text-slate-500 mt-1" id="edit-vehiculo-subtitulo">Vehículo #</p>
+      </div>
+
+      <form onsubmit="app.submitEdicionVehiculo(event)" class="space-y-4 text-sm">
+        <input type="hidden" id="edit-vehiculo-id">
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Especificación de Motor</label>
+          <input type="text" id="edit-motor" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">No. Cilindros</label>
+            <input type="number" id="edit-cilindros" min="1" max="16" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Transmisión</label>
+            <select id="edit-transmision" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Combustible</label>
+            <select id="edit-combustible" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"></select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Tracción</label>
+            <select id="edit-traccion" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"></select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nivel de Daño</label>
+          <select id="edit-dano" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-medium">
+            <option value="1">🟢 Verde (Menor / Limpio)</option>
+            <option value="2">🟡 Amarillo (Medio / Reparable)</option>
+            <option value="3">🔴 Rojo (Severo / Salvamento)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="app.closeModal('modal-editar')" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 font-medium hover:bg-slate-50 transition text-xs">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition text-xs">
+            Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 mt-12 py-6 text-slate-500 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-graduation-cap text-blue-600 text-base"></i>
+        <span>Universidad Mariano Gálvez de Guatemala — Desarrollo y Diseño Web (036)</span>
+      </div>
+      <div>
+        <span>Desarrollado por <strong>Albino Sebastián Rosales Ruano</strong> | 2do Parcial 2026</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

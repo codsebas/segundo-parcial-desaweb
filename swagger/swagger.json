@@ -1,0 +1,325 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API de Subastas de Vehículos en Tiempo Real (Copart)",
+    "version": "1.0.0",
+    "description": "API RESTful oficial para la plataforma de subastas de vehículos estilo Copart. Desarrollada para la evaluación del 2do Parcial de Desarrollo y Diseño Web (UMG). Soporta autenticación JWT, gestión de catálogo técnico con galerías fotográficas, control de estados de daño y motor de pujas en tiempo real con Stored Procedures transaccionales."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Servidor actual (Local / Vercel Serverless)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Ingrese su token JWT en el formato: Bearer {token}"
+      }
+    },
+    "schemas": {
+      "RegistroRequest": {
+        "type": "object",
+        "required": ["nombre", "apellido", "correo", "telefono", "contrasena"],
+        "properties": {
+          "nombre": { "type": "string", "example": "Carlos" },
+          "apellido": { "type": "string", "example": "Méndez" },
+          "correo": { "type": "string", "format": "email", "example": "comprador1@copart.com" },
+          "telefono": { "type": "string", "example": "50255551111" },
+          "contrasena": { "type": "string", "example": "Password123!" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["correo", "contrasena"],
+        "properties": {
+          "correo": { "type": "string", "example": "comprador1@copart.com" },
+          "contrasena": { "type": "string", "example": "Password123!" }
+        }
+      },
+      "FotoInput": {
+        "type": "object",
+        "required": ["nombreArchivo", "tipoMime", "base64"],
+        "properties": {
+          "nombreArchivo": { "type": "string", "example": "frontal.png" },
+          "tipoMime": { "type": "string", "enum": ["image/jpeg", "image/png", "image/webp"], "example": "image/png" },
+          "base64": { "type": "string", "example": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }
+        }
+      },
+      "CrearVehiculoRequest": {
+        "type": "object",
+        "required": [
+          "anio", "tipoArticuloId", "marcaId", "modeloId", "motor",
+          "transmisionId", "combustibleId", "traccionId", "numeroCilindros",
+          "nivelDanoId", "precioBase", "fotos"
+        ],
+        "properties": {
+          "anio": { "type": "integer", "example": 2022 },
+          "tipoArticuloId": { "type": "integer", "example": 1 },
+          "marcaId": { "type": "integer", "example": 1 },
+          "modeloId": { "type": "integer", "example": 5 },
+          "motor": { "type": "string", "example": "3.5L V6 DOHC" },
+          "transmisionId": { "type": "integer", "example": 1 },
+          "combustibleId": { "type": "integer", "example": 1 },
+          "traccionId": { "type": "integer", "example": 1 },
+          "numeroCilindros": { "type": "integer", "example": 6 },
+          "nivelDanoId": { "type": "integer", "description": "1: VERDE (Limpio), 2: AMARILLO (Medio), 3: ROJO (Severo)", "example": 1 },
+          "precioBase": { "type": "number", "minimum": 20000, "example": 75000.00 },
+          "inicioUtc": { "type": "string", "format": "date-time", "example": "2026-09-26T15:00:00Z" },
+          "finUtc": { "type": "string", "format": "date-time", "example": "2026-09-29T15:00:00Z" },
+          "fotos": {
+            "type": "array",
+            "minItems": 5,
+            "items": { "$ref": "#/components/schemas/FotoInput" },
+            "description": "Mínimo 5 fotografías obligatorias del vehículo"
+          }
+        }
+      },
+      "EditarVehiculoRequest": {
+        "type": "object",
+        "properties": {
+          "motor": { "type": "string", "example": "3.5L Twin-Turbo" },
+          "numeroCilindros": { "type": "integer", "example": 6 },
+          "transmisionId": { "type": "integer", "example": 1 },
+          "combustibleId": { "type": "integer", "example": 1 },
+          "traccionId": { "type": "integer", "example": 1 },
+          "nivelDanoId": { "type": "integer", "example": 2 }
+        }
+      },
+      "PujaRequest": {
+        "type": "object",
+        "required": ["monto"],
+        "properties": {
+          "monto": { "type": "number", "minimum": 20000, "example": 82500.00 }
+        }
+      },
+      "StandardResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "success" },
+          "message": { "type": "string", "example": "Operación completada exitosamente." },
+          "data": { "type": "object" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/registro": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Registrar nuevo usuario",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegistroRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Usuario registrado exitosamente con token JWT" },
+          "400": { "description": "Error de validación sintáctica o correo duplicado" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Iniciar sesión y obtener token JWT",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Autenticación exitosa" },
+          "400": { "description": "Credenciales inválidas" }
+        }
+      }
+    },
+    "/api/auth/perfil": {
+      "get": {
+        "tags": ["Autenticación"],
+        "summary": "Consultar perfil de usuario autenticado",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Datos de perfil de usuario" },
+          "401": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/auth/usuarios-prueba": {
+      "get": {
+        "tags": ["Autenticación"],
+        "summary": "Obtener las 3 cuentas de usuario pre-creadas para pruebas cruzadas",
+        "responses": {
+          "200": { "description": "Lista de credenciales de prueba preconfiguradas" }
+        }
+      }
+    },
+    "/api/catalogos": {
+      "get": {
+        "tags": ["Catálogos"],
+        "summary": "Obtener todos los catálogos del sistema (Marcas, Modelos, Tipos, etc.)",
+        "responses": {
+          "200": { "description": "Estructura completa de catálogos para filtros y formularios" }
+        }
+      }
+    },
+    "/api/catalogos/modelos/{marcaId}": {
+      "get": {
+        "tags": ["Catálogos"],
+        "summary": "Obtener modelos asociados a una marca específica",
+        "parameters": [
+          { "name": "marcaId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista de modelos" }
+        }
+      }
+    },
+    "/api/subastas": {
+      "get": {
+        "tags": ["Subastas e Inventario"],
+        "summary": "Consultar inventario de vehículos y subastas con filtros multitarea",
+        "parameters": [
+          { "name": "search", "in": "query", "description": "Búsqueda por texto (marca, modelo, motor)", "schema": { "type": "string" } },
+          { "name": "marcaId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "modeloId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "anio", "in": "query", "schema": { "type": "integer" } },
+          { "name": "combustibleId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "nivelDano", "in": "query", "description": "VERDE, AMARILLO o ROJO", "schema": { "type": "string" } },
+          { "name": "precioMin", "in": "query", "schema": { "type": "number" } },
+          { "name": "precioMax", "in": "query", "schema": { "type": "number" } },
+          { "name": "soloActivas", "in": "query", "description": "true para activas, false para incluir cerradas", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "description": "Listado de subastas según los filtros aplicados" }
+        }
+      }
+    },
+    "/api/subastas/{id}": {
+      "get": {
+        "tags": ["Subastas e Inventario"],
+        "summary": "Consultar detalle completo de una subasta y ficha técnica",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Detalle técnico, carrusel de fotos, cronómetro y puja actual" },
+          "404": { "description": "Subasta no encontrada" }
+        }
+      }
+    },
+    "/api/subastas/{id}/live": {
+      "get": {
+        "tags": ["Subastas e Inventario"],
+        "summary": "Sincronización en tiempo real sin recarga de pantalla (Pujas e indicadores en vivo)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Estado actual de la subasta, segundos restantes y badges GANANDO / SUPERADO" }
+        }
+      }
+    },
+    "/api/subastas/{id}/pujas": {
+      "post": {
+        "tags": ["Pujas"],
+        "summary": "Registrar una nueva oferta / puja (Requiere Autenticación)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PujaRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Puja aceptada y registrada exitosamente" },
+          "400": { "description": "Oferta no supera base, no supera el 10% adicional o tiempo vencido" },
+          "401": { "description": "No autorizado: Inicie sesión para ofertar" }
+        }
+      },
+      "get": {
+        "tags": ["Pujas"],
+        "summary": "Consultar historial anónimo de pujas de la subasta",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Historial ordenado de pujas (identidad anonimizada)" }
+        }
+      }
+    },
+    "/api/vehiculos": {
+      "post": {
+        "tags": ["Vehículos"],
+        "summary": "Publicar un nuevo vehículo para subasta (Mínimo 5 fotos obligatorias)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CrearVehiculoRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Vehículo y subasta creados exitosamente" },
+          "400": { "description": "Faltan datos obligatorios, menos de 5 fotos o error de catálogo" },
+          "401": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/vehiculos/mis-vehiculos": {
+      "get": {
+        "tags": ["Vehículos"],
+        "summary": "Consultar publicaciones del usuario autenticado (Buscador y gestor)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista de vehículos publicados por el usuario" },
+          "401": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/vehiculos/{id}": {
+      "put": {
+        "tags": ["Vehículos"],
+        "summary": "Editar ficha técnica de un vehículo propio",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EditarVehiculoRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Ficha técnica actualizada" },
+          "403": { "description": "No es el dueño de la publicación" }
+        }
+      }
+    },
+    "/api/fotos/{fotoId}": {
+      "get": {
+        "tags": ["Vehículos"],
+        "summary": "Servir fotografía binaria por ID",
+        "parameters": [
+          { "name": "fotoId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Archivo de imagen binario (image/png, image/jpeg)" },
+          "404": { "description": "Fotografía no encontrada" }
+        }
+      }
+    },
+    "/api/notificaciones": {
+      "get": {
+        "tags": ["Pujas"],
+        "summary": "Consultar notificaciones del usuario autenticado (Ganando, Superado, Vendida)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Lista de notificaciones recibidas" }
+        }
+      }
+    }
+  }
+}
