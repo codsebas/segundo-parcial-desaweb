@@ -792,14 +792,14 @@ const app = {
         <div>
           <div class="flex items-center justify-between text-xs mb-1">
             <label class="font-bold text-slate-700">Tu Monto de Oferta (Q.)</label>
-            <span class="text-slate-500 font-medium">Mínimo sugerido: <strong class="text-blue-700">Q. ${Number(minBid).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</strong></span>
+            <span class="text-slate-500 font-medium">Mínimo sugerido: <strong id="live-minimo-sugerido-label" class="text-blue-700">Q. ${Number(minBid).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</strong></span>
           </div>
           <div class="relative">
             <span class="absolute left-3.5 top-2.5 text-slate-400 font-bold">Q.</span>
             <input 
               type="number" 
               id="input-bid-amount" 
-              step="100" 
+              step="any" 
               min="${minBid}" 
               value="${minBid}" 
               required 
@@ -977,6 +977,18 @@ const app = {
           if (msgEl) msgEl.classList.remove('hidden');
           const bidBox = document.getElementById('bid-action-box');
           if (bidBox) bidBox.innerHTML = '<button disabled class="w-full py-3 bg-slate-200 text-slate-500 font-semibold rounded-xl text-sm cursor-not-allowed">Oferta Cerrada</button>';
+        }
+
+        // Actualizar el estado en memoria para que los botones de incremento tengan el valor al día
+        if (this.state.currentSubasta) {
+          this.state.currentSubasta.OFERTA_ACTUAL = live.ofertaActual;
+          this.state.currentSubasta.minimoSiguientePuja = live.minimoSiguientePuja;
+        }
+
+        // Actualizar texto del mínimo sugerido
+        const minSugeridoEl = document.getElementById('live-minimo-sugerido-label');
+        if (minSugeridoEl && live.minimoSiguientePuja) {
+          minSugeridoEl.textContent = `Q. ${Number(live.minimoSiguientePuja).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
         }
 
         // Actualizar valor mínimo en el input si no está enfocado

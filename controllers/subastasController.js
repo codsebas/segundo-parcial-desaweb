@@ -3,8 +3,8 @@ const { verificarCierreSubasta, procesarSubastasVencidas } = require('../service
 
 async function getSubastas(req, res) {
   try {
-    // Procesar cierres en segundo plano
-    procesarSubastasVencidas().catch(() => {});
+    // Reconciliar y procesar cierres de subastas vencidas antes de listar
+    await procesarSubastasVencidas();
 
     const {
       marcaId,
@@ -21,11 +21,11 @@ async function getSubastas(req, res) {
     let conditions = ['1=1'];
     const params = [];
 
-    // Por defecto mostrar publicadas y activas a menos que se indique ver todas
+    // Por defecto mostrar publicadas y activas con fecha vigente a menos que se indique ver todas
     if (soloActivas === 'false') {
       conditions.push("s.ESTADO IN ('PUBLICADA', 'CERRADA')");
     } else {
-      conditions.push("s.ESTADO = 'PUBLICADA'");
+      conditions.push("s.ESTADO = 'PUBLICADA' AND s.FIN_UTC > SYSUTCDATETIME()");
     }
 
     if (marcaId) {
@@ -222,8 +222,8 @@ async function getSubastaPorId(req, res) {
       ORDER BY ORDEN ASC
     `, [{ name: 'vehiculoId', value: subasta.VEHICULO_ID }]);
 
-    // Calcular puja mínima siguiente
-    let minimoSiguientePuja = subasta.PRECIO_BASE;
+    // Calcular puja mínima siguiente (debe superar estrictamente el precio base según SP 51103)
+    let minimoSiguientePuja = Number(subasta.PRECIO_BASE) + 1;
     if (subasta.OFERTA_ACTUAL !== null) {
       // Regla de negocio: mínimo 10% sobre la oferta actual
       minimoSiguientePuja = Math.ceil(Number(subasta.OFERTA_ACTUAL) * 1.10 * 100) / 100;
@@ -349,7 +349,7 @@ async function getSubastaLive(req, res) {
       }
     }
 
-    let minimoSiguientePuja = sub.PRECIO_BASE;
+    let minimoSiguientePuja = Number(sub.PRECIO_BASE) + 1;
     if (sub.OFERTA_ACTUAL !== null) {
       minimoSiguientePuja = Math.ceil(Number(sub.OFERTA_ACTUAL) * 1.10 * 100) / 100;
     }

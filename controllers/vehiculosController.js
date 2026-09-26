@@ -1,4 +1,4 @@
-const { query, executeProc, sql } = require('../config/db');
+const { query, executeProc, sql, ensureDbConnected } = require('../config/db');
 
 async function crearVehiculo(req, res) {
   try {
@@ -126,92 +126,113 @@ async function crearVehiculo(req, res) {
       });
     }
 
-    // 5. Inserción del Vehículo
-    const resVeh = await query(`
-      INSERT INTO dbo.VEHICULOS2105 (
-        PUBLICADOR_USUARIO_ID, ANIO, TIPO_ARTICULO_ID, MARCA_ID, MODELO_ID,
-        MOTOR, TRANSMISION_ID, COMBUSTIBLE_ID, TRACCION_ID, NUMERO_CILINDROS,
-        NIVEL_DANO_ID, CREADO_UTC
-      )
-      OUTPUT INSERTED.VEHICULO_ID
-      VALUES (
-        @publicador, @anio, @tipo, @marca, @modelo,
-        @motor, @trans, @comb, @trac, @cil,
-        @dano, SYSUTCDATETIME()
-      )
-    `, [
-      { name: 'publicador', value: publicadorId },
-      { name: 'anio', value: nAnio },
-      { name: 'tipo', value: tipoArticuloId },
-      { name: 'marca', value: marcaId },
-      { name: 'modelo', value: modeloId },
-      { name: 'motor', value: motor.trim() },
-      { name: 'trans', value: transmisionId },
-      { name: 'comb', value: combustibleId },
-      { name: 'trac', value: traccionId },
-      { name: 'cil', value: nCilindros },
-      { name: 'dano', value: nivelDanoId }
-    ]);
+    // 5. Iniciar Transacción Atómica ACID para Inserción Completa (Vehículo + Fotos + Subasta + Publicación)
+    const pool = await ensureDbConnected();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
 
-    const vehiculoId = resVeh.recordset[0].VEHICULO_ID;
+    try {
+      // 5.1 Inserción del Vehículo dentro de la transacción
+      const reqVeh = new sql.Request(transaction);
+      reqVeh.input('publicador', publicadorId);
+      reqVeh.input('anio', nAnio);
+      reqVeh.input('tipo', tipoArticuloId);
+      reqVeh.input('marca', marcaId);
+      reqVeh.input('modelo', modeloId);
+      reqVeh.input('motor', motor.trim());
+      reqVeh.input('trans', transmisionId);
+      reqVeh.input('comb', combustibleId);
+      reqVeh.input('trac', traccionId);
+      reqVeh.input('cil', nCilindros);
+      reqVeh.input('dano', nivelDanoId);
 
-    // 6. Inserción de las Fotos en Paralelo (Mínimo 5 fotos obligatorias)
-    await Promise.all(fotos.map((f, i) => {
-      const cleanBase64 = (f.base64 || '').replace(/^data:[^;]+;base64,/, '');
-      const imgBuffer = Buffer.from(cleanBase64, 'base64');
-      const nombreArchivo = f.nombreArchivo ? f.nombreArchivo.trim() : `foto_${vehiculoId}_${i + 1}.png`;
-
-      return query(`
-        INSERT INTO dbo.FOTOS_VEHICULO2105 (
-          VEHICULO_ID, NOMBRE_ARCHIVO, TIPO_MIME, IMAGEN, ORDEN, CREADO_UTC
+      const resVeh = await reqVeh.query(`
+        INSERT INTO dbo.VEHICULOS2105 (
+          PUBLICADOR_USUARIO_ID, ANIO, TIPO_ARTICULO_ID, MARCA_ID, MODELO_ID,
+          MOTOR, TRANSMISION_ID, COMBUSTIBLE_ID, TRACCION_ID, NUMERO_CILINDROS,
+          NIVEL_DANO_ID, CREADO_UTC
         )
+        OUTPUT INSERTED.VEHICULO_ID
         VALUES (
-          @vehiculoId, @nombre, @mime, @img, @orden, SYSUTCDATETIME()
+          @publicador, @anio, @tipo, @marca, @modelo,
+          @motor, @trans, @comb, @trac, @cil,
+          @dano, SYSUTCDATETIME()
         )
-      `, [
-        { name: 'vehiculoId', value: vehiculoId },
-        { name: 'nombre', value: nombreArchivo },
-        { name: 'mime', value: (f.tipoMime || 'image/png').toLowerCase() },
-        { name: 'img', type: sql.VarBinary(sql.MAX), value: imgBuffer },
-        { name: 'orden', value: i + 1 }
-      ]);
-    }));
+      `);
 
-    // 7. Inserción de la Subasta en borrador
-    const resSub = await query(`
-      INSERT INTO dbo.SUBASTAS2105 (
-        VEHICULO_ID, PRECIO_BASE, INICIO_UTC, FIN_UTC, ESTADO, CREADO_UTC
-      )
-      OUTPUT INSERTED.SUBASTA_ID
-      VALUES (
-        @vehiculoId, @precioBase, @inicio, @fin, 'BORRADOR', SYSUTCDATETIME()
-      )
-    `, [
-      { name: 'vehiculoId', value: vehiculoId },
-      { name: 'precioBase', value: nPrecioBase },
-      { name: 'inicio', value: dInicio },
-      { name: 'fin', value: dFin }
-    ]);
+      const vehiculoId = resVeh.recordset[0].VEHICULO_ID;
 
-    const subastaId = resSub.recordset[0].SUBASTA_ID;
+      // 5.2 Inserción de las Fotos dentro de la transacción
+      for (let i = 0; i < fotos.length; i++) {
+        const f = fotos[i];
+        const cleanBase64 = (f.base64 || '').replace(/^data:[^;]+;base64,/, '');
+        const imgBuffer = Buffer.from(cleanBase64, 'base64');
+        const nombreArchivo = f.nombreArchivo ? f.nombreArchivo.trim() : `foto_${vehiculoId}_${i + 1}.png`;
 
-    // 8. Publicación inmediata de la subasta con el Stored Procedure
-    await executeProc('dbo.PUBLICAR_SUBASTA2105', [
-      { name: 'SUBASTA_ID', value: subastaId },
-      { name: 'PUBLICADOR_USUARIO_ID', value: publicadorId }
-    ]);
+        const reqFoto = new sql.Request(transaction);
+        reqFoto.input('vehiculoId', vehiculoId);
+        reqFoto.input('nombre', nombreArchivo);
+        reqFoto.input('mime', (f.tipoMime || 'image/png').toLowerCase());
+        reqFoto.input('img', sql.VarBinary(sql.MAX), imgBuffer);
+        reqFoto.input('orden', i + 1);
 
-    return res.status(201).json({
-      status: 'success',
-      message: 'Vehículo registrado y subasta publicada exitosamente.',
-      data: {
-        vehiculoId,
-        subastaId,
-        precioBase: nPrecioBase,
-        fotosRegistradas: fotos.length,
-        estado: 'PUBLICADA'
+        await reqFoto.query(`
+          INSERT INTO dbo.FOTOS_VEHICULO2105 (
+            VEHICULO_ID, NOMBRE_ARCHIVO, TIPO_MIME, IMAGEN, ORDEN, CREADO_UTC
+          )
+          VALUES (
+            @vehiculoId, @nombre, @mime, @img, @orden, SYSUTCDATETIME()
+          )
+        `);
       }
-    });
+
+      // 5.3 Inserción de la Subasta en borrador dentro de la transacción
+      const reqSub = new sql.Request(transaction);
+      reqSub.input('vehiculoId', vehiculoId);
+      reqSub.input('precioBase', nPrecioBase);
+      reqSub.input('inicio', dInicio);
+      reqSub.input('fin', dFin);
+
+      const resSub = await reqSub.query(`
+        INSERT INTO dbo.SUBASTAS2105 (
+          VEHICULO_ID, PRECIO_BASE, INICIO_UTC, FIN_UTC, ESTADO, CREADO_UTC
+        )
+        OUTPUT INSERTED.SUBASTA_ID
+        VALUES (
+          @vehiculoId, @precioBase, @inicio, @fin, 'BORRADOR', SYSUTCDATETIME()
+        )
+      `);
+
+      const subastaId = resSub.recordset[0].SUBASTA_ID;
+
+      // 5.4 Publicación inmediata de la subasta con el Stored Procedure en la transacción
+      const reqProc = new sql.Request(transaction);
+      reqProc.input('SUBASTA_ID', subastaId);
+      reqProc.input('PUBLICADOR_USUARIO_ID', publicadorId);
+      await reqProc.execute('dbo.PUBLICAR_SUBASTA2105');
+
+      // Si todas las operaciones fueron exitosas, confirmar la transacción atómica
+      await transaction.commit();
+
+      return res.status(201).json({
+        status: 'success',
+        message: 'Vehículo registrado y subasta publicada exitosamente.',
+        data: {
+          vehiculoId,
+          subastaId,
+          precioBase: nPrecioBase,
+          fotosRegistradas: fotos.length,
+          estado: 'PUBLICADA'
+        }
+      });
+    } catch (txErr) {
+      try {
+        await transaction.rollback();
+      } catch (rollbackErr) {
+        console.warn('Error al hacer rollback de transacción:', rollbackErr.message);
+      }
+      throw txErr;
+    }
   } catch (err) {
     console.error('Error al registrar vehículo y subasta:', err);
     return res.status(500).json({

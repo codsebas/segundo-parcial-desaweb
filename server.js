@@ -72,6 +72,7 @@ app.use((err, req, res, next) => {
 
 // Inicialización de servidor local (solo cuando no corre en serverless Vercel)
 if (!process.env.VERCEL) {
+  const { procesarSubastasVencidas } = require('./services/subastaService');
   app.listen(PORT, async () => {
     console.log(`🚀 Servidor ejecutándose en el puerto ${PORT}: http://localhost:${PORT}`);
     console.log(`📄 Documentación Swagger disponible en: http://localhost:${PORT}/api-docs`);
@@ -80,6 +81,10 @@ if (!process.env.VERCEL) {
     } catch (e) {
       console.warn('Conexión inicial a DB diferida:', e.message);
     }
+    // Verificación periódica local cada 30 segundos
+    setInterval(() => {
+      procesarSubastasVencidas().catch(() => {});
+    }, 30000);
   });
 }
 

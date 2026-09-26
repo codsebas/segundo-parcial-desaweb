@@ -273,9 +273,12 @@ async function runTests() {
       });
       const pubToken = pubLogin.data.data.token;
 
-      // Obtener detalle de subasta para saber qué vehículo es
-      const subDet = await request(`/api/subastas/${testSubastaId}`);
-      const vehId = subDet.data.data.VEHICULO_ID;
+      // Obtener vehículo propio del publicador
+      const misVehRes = await request('/api/vehiculos/mis-vehiculos', {
+        headers: { 'Authorization': `Bearer ${pubToken}` }
+      });
+      const misVehiculos = misVehRes.data.data || [];
+      const vehId = misVehiculos.length > 0 ? misVehiculos[0].VEHICULO_ID : 1;
 
       // Intentar cambiar nivel de daño (campo crítico) una vez que ya tiene ofertas
       const editRes = await request(`/api/vehiculos/${vehId}`, {
