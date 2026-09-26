@@ -1125,22 +1125,71 @@ const app = {
       modelosFiltrados.map(mo => `<option value="${mo.MODELO_ID}">${mo.NOMBRE}</option>`).join('');
   },
 
-  handlePhotoUpload(event) {
+  // Helper para redimensionar y comprimir imágenes en el cliente (evita payloads pesados a Vercel)
+  compressImage(file, maxWidth = 1000, maxHeight = 750, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth || height > maxHeight) {
+            if (width / height > maxWidth / maxHeight) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          let mime = 'image/jpeg';
+          if (file.type === 'image/png') mime = 'image/png';
+          else if (file.type === 'image/webp') mime = 'image/webp';
+
+          const compressedBase64 = canvas.toDataURL(mime, quality);
+          resolve({
+            nombreArchivo: file.name,
+            tipoMime: mime,
+            base64: compressedBase64
+          });
+        };
+        img.onerror = () => reject(new Error('No se pudo decodificar la imagen seleccionada.'));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+      reader.readAsDataURL(file);
+    });
+  },
+
+  async handlePhotoUpload(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.state.pubFotos.push({
-          nombreArchivo: file.name,
-          tipoMime: file.type || 'image/png',
-          base64: e.target.result
-        });
-        this.renderPubFotosPreview();
-      };
-      reader.readAsDataURL(file);
+    const statusEl = document.getElementById('fotos-count-status');
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="text-blue-600 font-bold"><i class="fa-solid fa-circle-notch fa-spin"></i> Optimizando fotografías para la web...</span>';
+    }
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const compressed = await this.compressImage(file);
+        this.state.pubFotos.push(compressed);
+      }
+      this.renderPubFotosPreview();
+      this.showToast('Fotografías optimizadas y listas para publicación.', 'success');
+    } catch (e) {
+      console.error('Error optimizando foto:', e);
+      this.showToast('Error al optimizar una o más imágenes.', 'error');
     }
   },
 
@@ -1279,18 +1328,25 @@ const app = {
         },
         body: JSON.stringify(payload)
       });
-      const json = await res.json();
+      const text = await res.text();
+      let json = null;
+      try {
+        json = JSON.parse(text);
+      } catch (_) {
+        throw new Error(text || `Error del servidor HTTP ${res.status}`);
+      }
 
-      if (json.status === 'success') {
+      if (json && json.status === 'success') {
         this.showToast('¡Vehículo y subasta publicados exitosamente!', 'success');
         document.getElementById('form-publicar').reset();
         this.state.pubFotos = [];
         this.navigate('detalle', { id: json.data.subastaId });
       } else {
-        this.showToast(json.message || 'Error al publicar vehículo.', 'error');
+        this.showToast((json && json.message) || 'Error al publicar vehículo.', 'error');
       }
     } catch (err) {
-      this.showToast('Error de red al procesar la publicación.', 'error');
+      console.error('Error al publicar vehículo:', err);
+      this.showToast(err.message || 'Error al procesar la publicación.', 'error');
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-check"></i> Publicar Vehículo';

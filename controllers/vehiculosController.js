@@ -1,4 +1,4 @@
-const { query, executeProc } = require('../config/db');
+const { query, executeProc, sql } = require('../config/db');
 
 async function crearVehiculo(req, res) {
   try {
@@ -155,15 +155,13 @@ async function crearVehiculo(req, res) {
 
     const vehiculoId = resVeh.recordset[0].VEHICULO_ID;
 
-    // 6. Inserción de las Fotos (Mínimo 5)
-    for (let i = 0; i < fotos.length; i++) {
-      const f = fotos[i];
-      // Limpiar header data:image/png;base64,... si viene incluido
-      const cleanBase64 = f.base64.replace(/^data:image\/[a-z]+;base64,/, '');
+    // 6. Inserción de las Fotos en Paralelo (Mínimo 5 fotos obligatorias)
+    await Promise.all(fotos.map((f, i) => {
+      const cleanBase64 = (f.base64 || '').replace(/^data:[^;]+;base64,/, '');
       const imgBuffer = Buffer.from(cleanBase64, 'base64');
       const nombreArchivo = f.nombreArchivo ? f.nombreArchivo.trim() : `foto_${vehiculoId}_${i + 1}.png`;
 
-      await query(`
+      return query(`
         INSERT INTO dbo.FOTOS_VEHICULO2105 (
           VEHICULO_ID, NOMBRE_ARCHIVO, TIPO_MIME, IMAGEN, ORDEN, CREADO_UTC
         )
@@ -173,11 +171,11 @@ async function crearVehiculo(req, res) {
       `, [
         { name: 'vehiculoId', value: vehiculoId },
         { name: 'nombre', value: nombreArchivo },
-        { name: 'mime', value: f.tipoMime.toLowerCase() },
-        { name: 'img', value: imgBuffer },
+        { name: 'mime', value: (f.tipoMime || 'image/png').toLowerCase() },
+        { name: 'img', type: sql.VarBinary(sql.MAX), value: imgBuffer },
         { name: 'orden', value: i + 1 }
       ]);
-    }
+    }));
 
     // 7. Inserción de la Subasta en borrador
     const resSub = await query(`
