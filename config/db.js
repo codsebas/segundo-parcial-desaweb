@@ -68,38 +68,34 @@ function saveLocalCache(data) {
 }
 
 /**
- * Inicialización perezosa (Lazy initialization) para entornos Serverless en Vercel.
+ * Inicialización perezosa con reintentos para entornos Serverless en Vercel.
  */
-async function ensureDbConnected() {
-  if (isResilienceMode) {
-    return null;
-  }
-
+async function ensureDbConnected(retries = 2) {
   if (poolPromise) {
     try {
       const pool = await poolPromise;
-      if (pool.connected) return pool;
+      if (pool && pool.connected) return pool;
     } catch (_) {
       poolPromise = null;
     }
   }
 
-  poolPromise = (async () => {
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
     try {
-      const pool = await new sql.ConnectionPool(dbConfig).connect();
-      console.log('✅ Pool de conexión a SQL Server establecido exitosamente.');
-      isResilienceMode = false;
+      poolPromise = new sql.ConnectionPool(dbConfig).connect();
+      const pool = await poolPromise;
+      console.log('✅ Pool de conexión a SQL Server conectado.');
       return pool;
     } catch (err) {
-      console.error('⚠️ Error conectando a Azure SQL Server:', err.message);
-      console.warn('🛡️ Activando modo de resiliencia local para garantizar alta disponibilidad.');
-      isResilienceMode = true;
+      console.error(`⚠️ Intento ${attempt}/${retries + 1} fallido hacia SQL Server: ${err.message}`);
       poolPromise = null;
-      return null;
+      if (attempt <= retries) {
+        await new Promise(r => setTimeout(r, 400 * attempt));
+      } else {
+        throw new Error('Servicio de base de datos no disponible temporalmente. Por favor reintente en unos instantes.');
+      }
     }
-  })();
-
-  return poolPromise;
+  }
 }
 
 /**
@@ -109,11 +105,6 @@ async function ensureDbConnected() {
  */
 async function query(queryStr, params = []) {
   const pool = await ensureDbConnected();
-  if (!pool) {
-    // Si la BD remota no responde, activar fallback
-    return queryFallback(queryStr, params);
-  }
-
   const req = pool.request();
   for (const p of params) {
     if (p.type) {
@@ -131,10 +122,6 @@ async function query(queryStr, params = []) {
  */
 async function executeProc(procName, params = []) {
   const pool = await ensureDbConnected();
-  if (!pool) {
-    throw new Error('El procedimiento no puede ejecutarse en modo sin conexión remota.');
-  }
-
   const req = pool.request();
   for (const p of params) {
     if (p.type) {
@@ -145,15 +132,6 @@ async function executeProc(procName, params = []) {
   }
 
   return await req.execute(procName);
-}
-
-/**
- * Modo fallback básico para consultas críticas si la base de datos se desconecta.
- */
-async function queryFallback(queryStr, params) {
-  console.warn('Ejecutando consulta en modo resiliente');
-  const cache = loadLocalCache();
-  return { recordset: cache.items || [], rowsAffected: [0] };
 }
 
 module.exports = {

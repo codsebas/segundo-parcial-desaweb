@@ -333,6 +333,28 @@ async function editarVehiculo(req, res) {
       });
     }
 
+    // Verificar si la subasta ya tiene ofertas registradas
+    const checkSubasta = await query(`
+      SELECT s.SUBASTA_ID, s.ESTADO,
+        (SELECT COUNT(*) FROM dbo.PUJAS2105 WHERE SUBASTA_ID = s.SUBASTA_ID) AS TOTAL_PUJAS
+      FROM dbo.SUBASTAS2105 AS s
+      WHERE s.VEHICULO_ID = @id
+    `, [{ name: 'id', value: parseInt(id, 10) }]);
+
+    const subastaInfo = checkSubasta.recordset[0];
+    const tienePujas = subastaInfo && subastaInfo.TOTAL_PUJAS > 0;
+
+    // Si ya tiene ofertas, bloquear cambios críticos (estado de daño) para proteger a los postores
+    if (tienePujas && nivelDanoId !== undefined && nivelDanoId !== null) {
+      const currentDano = await query('SELECT NIVEL_DANO_ID FROM dbo.VEHICULOS2105 WHERE VEHICULO_ID = @id', [{ name: 'id', value: parseInt(id, 10) }]);
+      if (currentDano.recordset.length > 0 && currentDano.recordset[0].NIVEL_DANO_ID !== parseInt(nivelDanoId, 10)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Integridad de subasta: No se puede modificar la clasificación de daño de un vehículo que ya tiene ofertas registradas.'
+        });
+      }
+    }
+
     // Actualización de campos permitidos
     await query(`
       UPDATE dbo.VEHICULOS2105
@@ -342,7 +364,7 @@ async function editarVehiculo(req, res) {
         TRANSMISION_ID = COALESCE(@trans, TRANSMISION_ID),
         COMBUSTIBLE_ID = COALESCE(@comb, COMBUSTIBLE_ID),
         TRACCION_ID = COALESCE(@trac, TRACCION_ID),
-        NIVEL_DANO_ID = COALESCE(@dano, NIVEL_DANO_ID),
+        NIVEL_DANO_ID = CASE WHEN @tienePujas = 1 THEN NIVEL_DANO_ID ELSE COALESCE(@dano, NIVEL_DANO_ID) END,
         ACTUALIZADO_UTC = SYSUTCDATETIME()
       WHERE VEHICULO_ID = @id
     `, [
@@ -352,7 +374,8 @@ async function editarVehiculo(req, res) {
       { name: 'trans', value: transmisionId ? parseInt(transmisionId, 10) : null },
       { name: 'comb', value: combustibleId ? parseInt(combustibleId, 10) : null },
       { name: 'trac', value: traccionId ? parseInt(traccionId, 10) : null },
-      { name: 'dano', value: nivelDanoId ? parseInt(nivelDanoId, 10) : null }
+      { name: 'dano', value: nivelDanoId ? parseInt(nivelDanoId, 10) : null },
+      { name: 'tienePujas', value: tienePujas ? 1 : 0 }
     ]);
 
     return res.status(200).json({

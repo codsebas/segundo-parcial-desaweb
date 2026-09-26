@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/db');
-const { JWT_SECRET } = require('../middleware/authMiddleware');
+const { getJwtSecret } = require('../middleware/authMiddleware');
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -79,7 +79,7 @@ async function registro(req, res) {
     const user = result.recordset[0];
     const token = jwt.sign(
       { id: user.USUARIO_ID, correo: user.CORREO, nombre: user.NOMBRE, rol: user.ROL },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 
@@ -152,7 +152,7 @@ async function login(req, res) {
 
     const token = jwt.sign(
       { id: user.USUARIO_ID, correo: user.CORREO, nombre: user.NOMBRE, rol: user.ROL },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 

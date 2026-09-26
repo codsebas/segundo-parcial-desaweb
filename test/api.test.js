@@ -163,6 +163,132 @@ async function runTests() {
       'POST /api/subastas/:id/pujas bloquea ofertas de usuarios anónimos (401 Unauthorized)'
     );
 
+    // -------------------------------------------------------------
+    // PRUEBA 6: Flujo Concurrente Multi-Usuario y Transición de Estados (GANANDO -> SUPERADO)
+    // -------------------------------------------------------------
+    console.log('\n--- 6. Pruebas de Ofertas Cruzadas Multi-Usuario y Estados Vivos ---');
+    if (testSubastaId) {
+      // 6.1 Autenticación de Usuario 2 (Ana Morales)
+      const login2 = await request('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          correo: 'comprador2@copart.com',
+          contrasena: 'Password123!'
+        })
+      });
+      assert(login2.status === 200 && login2.data.data.token, 'POST /api/auth/login autentica a Usuario 2 (comprador2@copart.com)');
+      const token2 = login2.data.data.token;
+
+      // 6.2 Obtener monto mínimo requerido actual
+      const liveActual = await request(`/api/subastas/${testSubastaId}/live`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      const montoBaseOminimo = Number(liveActual.data.data.minimoSiguientePuja);
+
+      // 6.3 Usuario 1 emite puja válida -> debe quedar en estado GANANDO
+      const pujaU1 = await request(`/api/subastas/${testSubastaId}/pujas`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ monto: montoBaseOminimo })
+      });
+      assert(
+        pujaU1.status === 201 && pujaU1.data.data.badgeEstado === 'GANANDO',
+        `Usuario 1 oferta Q.${montoBaseOminimo} y se posiciona como GANANDO (201 Created)`
+      );
+
+      // 6.4 Verificar estado en vivo para Usuario 1
+      const liveU1 = await request(`/api/subastas/${testSubastaId}/live`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      assert(
+        liveU1.status === 200 && liveU1.data.data.badgeEstado === 'GANANDO' && liveU1.data.data.usuarioEsGanador === true,
+        'Live polling confirma a Usuario 1 con badge GANANDO y usuarioEsGanador: true'
+      );
+
+      // 6.5 Usuario 2 intenta puja inválida (inferior al +10% del incremento requerido)
+      const montoInsuficiente = Math.round(montoBaseOminimo * 1.03); // sólo 3% incremento
+      const pujaInvalidaU2 = await request(`/api/subastas/${testSubastaId}/pujas`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token2}` },
+        body: JSON.stringify({ monto: montoInsuficiente })
+      });
+      assert(
+        pujaInvalidaU2.status === 400,
+        `Usuario 2 intenta oferta con incremento insuficiente Q.${montoInsuficiente} (< 10%) y es rechazada (400 Bad Request)`
+      );
+
+      // 6.6 Usuario 2 emite oferta ganadora superando el mínimo requerido (+15%)
+      const montoGanadorU2 = Math.ceil(montoBaseOminimo * 1.15);
+      const pujaValidaU2 = await request(`/api/subastas/${testSubastaId}/pujas`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token2}` },
+        body: JSON.stringify({ monto: montoGanadorU2 })
+      });
+      assert(
+        pujaValidaU2.status === 201 && pujaValidaU2.data.data.badgeEstado === 'GANANDO',
+        `Usuario 2 supera la oferta con Q.${montoGanadorU2} y pasa a GANANDO (201 Created)`
+      );
+
+      // 6.7 Verificar que Usuario 2 está GANANDO
+      const liveU2 = await request(`/api/subastas/${testSubastaId}/live`, {
+        headers: { 'Authorization': `Bearer ${token2}` }
+      });
+      assert(
+        liveU2.status === 200 && liveU2.data.data.badgeEstado === 'GANANDO' && liveU2.data.data.usuarioEsGanador === true,
+        'Live polling confirma a Usuario 2 con badge GANANDO y usuarioEsGanador: true'
+      );
+
+      // 6.8 Verificar que el estado de Usuario 1 cambió a SUPERADO sin recargar la página (polling en vivo)
+      const liveU1Superado = await request(`/api/subastas/${testSubastaId}/live`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      assert(
+        liveU1Superado.status === 200 && liveU1Superado.data.data.badgeEstado === 'SUPERADO' && liveU1Superado.data.data.usuarioEsGanador === false,
+        'Live polling detecta reactivamente que Usuario 1 fue SUPERADO sin refrescar pantalla'
+      );
+    }
+
+    // -------------------------------------------------------------
+    // PRUEBA 7: Cron de Cierre Automático Idempotente
+    // -------------------------------------------------------------
+    console.log('\n--- 7. Pruebas de Cierre Automático (Cron Idempotente) ---');
+    const cronRes = await request('/api/cron/cerrar-subastas');
+    assert(
+      cronRes.status === 200 && cronRes.data.status === 'success',
+      'GET /api/cron/cerrar-subastas ejecuta verificación de vencimiento de forma idempotente (200 OK)'
+    );
+
+    // -------------------------------------------------------------
+    // PRUEBA 8: Guardas de Integridad (Bloqueo de Modificación con Ofertas Activas)
+    // -------------------------------------------------------------
+    console.log('\n--- 8. Pruebas de Protección en Edición de Vehículo con Ofertas ---');
+    if (testSubastaId) {
+      // Login como publicador
+      const pubLogin = await request('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          correo: 'publicador@copart.com',
+          contrasena: 'Password123!'
+        })
+      });
+      const pubToken = pubLogin.data.data.token;
+
+      // Obtener detalle de subasta para saber qué vehículo es
+      const subDet = await request(`/api/subastas/${testSubastaId}`);
+      const vehId = subDet.data.data.VEHICULO_ID;
+
+      // Intentar cambiar nivel de daño (campo crítico) una vez que ya tiene ofertas
+      const editRes = await request(`/api/vehiculos/${vehId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${pubToken}` },
+        body: JSON.stringify({ nivelDanoId: 1 }) // Modificar nivel de daño
+      });
+      assert(
+        editRes.status === 400 && editRes.data.message.includes('daño'),
+        'PUT /api/vehiculos/:id bloquea alteración de nivel de daño si la subasta ya tiene ofertas (400 Bad Request)'
+      );
+    }
+
   } catch (err) {
     console.error('Error fatal durante la ejecución de pruebas:', err);
     failed++;

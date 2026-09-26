@@ -1,6 +1,19 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'CopartSubastasSecretKey2026_UMG_Parcial!';
+function getJwtSecret() {
+  const secret = (process.env.JWT_SECRET || '').trim().replace(/^["']|["']$/g, '');
+  if (secret.length > 0) {
+    return secret;
+  }
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    throw new Error('Seguridad crítica: JWT_SECRET no está definida en las variables de entorno.');
+  }
+  if (!global._devJwtSecret) {
+    global._devJwtSecret = crypto.randomBytes(32).toString('hex');
+  }
+  return global._devJwtSecret;
+}
 
 function authRequired(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -21,7 +34,7 @@ function authRequired(req, res, next) {
 
   const token = parts[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
     req.user = decoded;
     next();
   } catch (err) {
@@ -37,7 +50,7 @@ function optionalAuth(req, res, next) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
-      req.user = jwt.verify(token, JWT_SECRET);
+      req.user = jwt.verify(token, getJwtSecret());
     } catch (_) {
       req.user = null;
     }
@@ -48,5 +61,5 @@ function optionalAuth(req, res, next) {
 module.exports = {
   authRequired,
   optionalAuth,
-  JWT_SECRET
+  getJwtSecret
 };

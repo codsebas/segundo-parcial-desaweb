@@ -1,7 +1,7 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const zlib = require('zlib');
-const { query, executeProc } = require('./config/db');
+const { query, executeProc, sql } = require('./config/db');
 
 // Helper para generar PNGs válidos
 function createSolidColorPng(width = 400, height = 300, r = 30, g = 144, b = 255) {
@@ -266,25 +266,61 @@ async function seed() {
       ]);
       const vehiculoId = rVeh.recordset[0].VEHICULO_ID;
 
-      // 2. Insertar 5 fotos obligatorias por vehículo
-      const colors = [
-        [30 + idx * 40, 100, 220],
-        [40, 120 + idx * 30, 180],
-        [180, 50, 120 + idx * 20],
-        [50, 160, 90 + idx * 30],
-        [120, 80 + idx * 30, 200]
+      // 2. Insertar 5 fotos obligatorias por vehículo con fotos reales
+      const realPhotoSets = [
+        [
+          'https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1563720223185-11003d516935?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1544829099-b9a0c07fad1a?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&auto=format&fit=crop&q=80'
+        ],
+        [
+          'https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?w=800&auto=format&fit=crop&q=80'
+        ],
+        [
+          'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1553440569-bcc63803a83d?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=800&auto=format&fit=crop&q=80'
+        ]
       ];
 
+      const urls = realPhotoSets[idx] || [];
       for (let f = 1; f <= 5; f++) {
-        const [r, g, b] = colors[f - 1];
-        const pngBuf = createSolidColorPng(500, 360, r, g, b);
+        let imgBuf;
+        let mimeType = 'image/jpeg';
+        let fileName = `foto_${auto.anio}_${f}.jpg`;
+
+        if (urls[f - 1]) {
+          try {
+            const resImg = await fetch(urls[f - 1]);
+            const ab = await resImg.arrayBuffer();
+            imgBuf = Buffer.from(ab);
+          } catch (e) {
+            console.warn(`  (Fallback para foto ${f}: ${e.message})`);
+          }
+        }
+
+        if (!imgBuf) {
+          mimeType = 'image/png';
+          fileName = `foto_${auto.anio}_${f}.png`;
+          imgBuf = createSolidColorPng(500, 360, 40, 100, 200);
+        }
+
         await query(`
           INSERT INTO dbo.FOTOS_VEHICULO2105 (VEHICULO_ID, NOMBRE_ARCHIVO, TIPO_MIME, IMAGEN, ORDEN)
-          VALUES (@vehiculoId, @nombre, 'image/png', @imagen, @orden)
+          VALUES (@vehiculoId, @nombre, @mime, @imagen, @orden)
         `, [
           { name: 'vehiculoId', value: vehiculoId },
-          { name: 'nombre', value: `foto_${auto.anio}_${f}.png` },
-          { name: 'imagen', value: pngBuf },
+          { name: 'nombre', value: fileName },
+          { name: 'mime', value: mimeType },
+          { name: 'imagen', type: sql.VarBinary(sql.MAX), value: imgBuf },
           { name: 'orden', value: f }
         ]);
       }

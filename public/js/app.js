@@ -14,6 +14,17 @@ const app = {
     searchDebounceTimer: null
   },
 
+  // Prevención de inyección XSS en renderizado dinámico
+  escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
   // Inicialización de la aplicación
   async init() {
     this.restoreSession();
@@ -410,18 +421,18 @@ const app = {
         <div class="p-5 flex-grow flex flex-col justify-between space-y-4">
           <div>
             <div class="flex items-center justify-between text-xs text-slate-500 font-medium mb-1">
-              <span>${sub.ANIO} • ${sub.TIPO_ARTICULO}</span>
+              <span>${this.escapeHtml(sub.ANIO)} • ${this.escapeHtml(sub.TIPO_ARTICULO)}</span>
               <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold text-[10px] uppercase">Lote #${sub.SUBASTA_ID}</span>
             </div>
             <h3 class="text-lg font-bold text-slate-900 tracking-tight leading-snug group-hover:text-blue-600 transition">
-              ${sub.ANIO} ${sub.MARCA} ${sub.MODELO}
+              ${this.escapeHtml(sub.ANIO)} ${this.escapeHtml(sub.MARCA)} ${this.escapeHtml(sub.MODELO)}
             </h3>
             <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
-              <span><i class="fa-solid fa-gauge text-slate-400"></i> ${sub.MOTOR}</span>
+              <span><i class="fa-solid fa-gauge text-slate-400"></i> ${this.escapeHtml(sub.MOTOR)}</span>
               <span>•</span>
-              <span>${sub.TRANSMISION}</span>
+              <span>${this.escapeHtml(sub.TRANSMISION)}</span>
               <span>•</span>
-              <span>${sub.TRACCION}</span>
+              <span>${this.escapeHtml(sub.TRACCION)}</span>
             </p>
           </div>
 
@@ -552,40 +563,40 @@ const app = {
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-6 text-xs">
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Año</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.ANIO}</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.ANIO)}</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Tipo de Artículo</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.TIPO_ARTICULO}</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.TIPO_ARTICULO)}</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Marca / Modelo</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.MARCA} ${sub.MODELO}</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.MARCA)} ${this.escapeHtml(sub.MODELO)}</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Especificación de Motor</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.MOTOR}</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.MOTOR)}</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Cilindros</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.NUMERO_CILINDROS} Cilindros</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.NUMERO_CILINDROS)} Cilindros</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Transmisión</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.TRANSMISION}</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.TRANSMISION)}</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Combustible</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.COMBUSTIBLE}</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.COMBUSTIBLE)}</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Tren de Manejo (Tracción)</span>
-              <span class="text-slate-800 font-semibold text-sm">${sub.TRACCION}</span>
+              <span class="text-slate-800 font-semibold text-sm">${this.escapeHtml(sub.TRACCION)}</span>
             </div>
             <div>
               <span class="text-slate-400 uppercase font-bold block mb-0.5">Clasificación de Daño</span>
               <span class="inline-block px-2 py-0.5 rounded text-xs font-bold ${badgeDanoClass}">
-                ${iconDano} ${sub.NIVEL_DANO_DESC}
+                ${iconDano} ${this.escapeHtml(sub.NIVEL_DANO_DESC)}
               </span>
             </div>
           </div>
@@ -603,7 +614,7 @@ const app = {
             <div>
               <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Subasta Lote #${sub.SUBASTA_ID}</span>
               <h2 class="text-2xl font-black text-slate-900 tracking-tight leading-snug">
-                ${sub.ANIO} ${sub.MARCA} ${sub.MODELO}
+                ${this.escapeHtml(sub.ANIO)} ${this.escapeHtml(sub.MARCA)} ${this.escapeHtml(sub.MODELO)}
               </h2>
             </div>
             <div class="px-3 py-1 rounded-full text-xs font-bold ${badgeDanoClass}">
@@ -1193,51 +1204,78 @@ const app = {
     }
   },
 
-  // Cargar 5 fotos demo para facilidad de prueba del docente
-  loadDemoPhotos() {
+  // Cargar 5 fotos demo para facilidad de prueba del docente con autos reales
+  async loadDemoPhotos() {
     this.state.pubFotos = [];
-    const colors = [
-      { r: 37, g: 99, b: 235, label: 'Frontal' },
-      { r: 16, g: 185, b: 129, label: 'Lateral Izq.' },
-      { r: 245, g: 158, b: 11, label: 'Posterior' },
-      { r: 239, g: 68, b: 68, label: 'Interior' },
-      { r: 147, g: 51, b: 234, label: 'Motor' }
+    this.showToast('Cargando 5 fotografías reales de vehículos...', 'info');
+
+    const realCars = [
+      { label: 'Frontal', url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&auto=format&fit=crop&q=80' },
+      { label: 'Angulo', url: 'https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=600&auto=format&fit=crop&q=80' },
+      { label: 'Lateral', url: 'https://images.unsplash.com/photo-1544829099-b9a0c07fad1a?w=600&auto=format&fit=crop&q=80' },
+      { label: 'Posterior', url: 'https://images.unsplash.com/photo-1563720223185-11003d516935?w=600&auto=format&fit=crop&q=80' },
+      { label: 'Interior', url: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=600&auto=format&fit=crop&q=80' }
     ];
 
-    colors.forEach((c, idx) => {
-      // Crear canvas temporal en memoria para generar PNG válido
-      const canvas = document.createElement('canvas');
-      canvas.width = 600;
-      canvas.height = 400;
-      const ctx = canvas.getContext('2d');
+    try {
+      for (let i = 0; i < realCars.length; i++) {
+        const item = realCars[i];
+        const res = await fetch(item.url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
 
-      // Fondo
-      ctx.fillStyle = `rgb(${c.r}, ${c.g}, ${c.b})`;
-      ctx.fillRect(0, 0, 600, 400);
+        this.state.pubFotos.push({
+          nombreArchivo: `real_${item.label.toLowerCase()}_${i + 1}.jpg`,
+          tipoMime: 'image/jpeg',
+          base64: base64
+        });
+      }
 
-      // Marco
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 10;
-      ctx.strokeRect(10, 10, 580, 380);
+      this.renderPubFotosPreview();
+      this.showToast('5 fotografías reales cargadas exitosamente.', 'success');
+    } catch (err) {
+      console.warn('Fallback a fotos sintéticas generadas por canvas:', err);
+      const colors = [
+        { r: 37, g: 99, b: 235, label: 'Frontal' },
+        { r: 16, g: 185, b: 129, label: 'Lateral Izq.' },
+        { r: 245, g: 158, b: 11, label: 'Posterior' },
+        { r: 239, g: 68, b: 68, label: 'Interior' },
+        { r: 147, g: 51, b: 234, label: 'Motor' }
+      ];
 
-      // Texto
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 32px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`Foto #${idx + 1} — ${c.label}`, 300, 200);
-      ctx.font = '16px Inter, sans-serif';
-      ctx.fillText('Subastas Copart GT — Verificado', 300, 240);
+      colors.forEach((c, idx) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 400;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = `rgb(${c.r}, ${c.g}, ${c.b})`;
+        ctx.fillRect(0, 0, 600, 400);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(10, 10, 580, 380);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 32px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Foto #${idx + 1} — ${c.label}`, 300, 200);
+        ctx.font = '16px Inter, sans-serif';
+        ctx.fillText('Subastas Copart GT — Verificado', 300, 240);
 
-      const base64 = canvas.toDataURL('image/png');
-      this.state.pubFotos.push({
-        nombreArchivo: `demo_foto_${idx + 1}.png`,
-        tipoMime: 'image/png',
-        base64: base64
+        this.state.pubFotos.push({
+          nombreArchivo: `demo_foto_${idx + 1}.png`,
+          tipoMime: 'image/png',
+          base64: canvas.toDataURL('image/png')
+        });
       });
-    });
 
-    this.renderPubFotosPreview();
-    this.showToast('5 fotos de demostración generadas e insertadas correctamente.', 'success');
+      this.renderPubFotosPreview();
+      this.showToast('5 fotos de demostración generadas.', 'info');
+    }
   },
 
   removePubFoto(idx) {
@@ -1401,9 +1439,9 @@ const app = {
                   ${v.SUBASTA_ESTADO || 'Sin subasta'}
                 </span>
               </div>
-              <h3 class="text-base font-bold text-slate-900">${v.ANIO} ${v.MARCA} ${v.MODELO}</h3>
+              <h3 class="text-base font-bold text-slate-900">${this.escapeHtml(v.ANIO)} ${this.escapeHtml(v.MARCA)} ${this.escapeHtml(v.MODELO)}</h3>
               <p class="text-xs text-slate-500">
-                ${v.MOTOR} • ${v.NUMERO_CILINDROS} Cil. • ${v.TRANSMISION} • ${v.COMBUSTIBLE} • ${v.TRACCION}
+                ${this.escapeHtml(v.MOTOR)} • ${this.escapeHtml(v.NUMERO_CILINDROS)} Cil. • ${this.escapeHtml(v.TRANSMISION)} • ${this.escapeHtml(v.COMBUSTIBLE)} • ${this.escapeHtml(v.TRACCION)}
               </p>
               <p class="text-xs text-slate-400 mt-1">
                 Precio Base: <strong>Q. ${Number(v.PRECIO_BASE).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</strong> |

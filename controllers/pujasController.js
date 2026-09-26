@@ -1,4 +1,5 @@
 const { query, executeProc } = require('../config/db');
+const { verificarCierreSubasta } = require('../services/subastaService');
 
 async function registrarPuja(req, res) {
   try {
@@ -18,7 +19,10 @@ async function registrarPuja(req, res) {
       });
     }
 
-    // Verificar si la subasta existe antes de llamar al procedure
+    // Verificar y cerrar si ya venció la fecha/hora fin antes de permitir ofertas
+    await verificarCierreSubasta(subastaId);
+
+    // Verificar si la subasta existe y está activa
     const checkSub = await query(`
       SELECT s.SUBASTA_ID, s.PRECIO_BASE, s.ESTADO, s.INICIO_UTC, s.FIN_UTC, v.PUBLICADOR_USUARIO_ID,
              (SELECT MAX(MONTO) FROM dbo.PUJAS2105 WHERE SUBASTA_ID = s.SUBASTA_ID) AS OFERTA_MAXIMA
@@ -35,6 +39,15 @@ async function registrarPuja(req, res) {
     }
 
     const sub = checkSub.recordset[0];
+
+    // Validar estado y vigencia temporal
+    const ahora = new Date();
+    if (sub.ESTADO !== 'PUBLICADA' || ahora < new Date(sub.INICIO_UTC) || ahora >= new Date(sub.FIN_UTC)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'La subasta no acepta ofertas en este momento: Oferta cerrada o fuera de horario.'
+      });
+    }
 
     // Impedir que el mismo publicador puje en su propia subasta
     if (sub.PUBLICADOR_USUARIO_ID === usuarioId) {

@@ -109,10 +109,10 @@ Asegúrate de contar con el archivo `.env` configurado con las credenciales de A
 DB_SERVER=svr-sql-ctezo.southcentralus.cloudapp.azure.com
 DB_NAME=db_WebDevUMG
 DB_USER=UsuarioEncuestas
-DB_PASSWORD=DesaWeb2025$!
+DB_PASSWORD=tu_password_aqui
 DB_PORT=1433
 PORT=3000
-JWT_SECRET=CopartSubastasSecretKey2026_UMG_Parcial!
+JWT_SECRET=tu_clave_secreta_jwt
 ```
 
 ### 3. Poblar Datos y Usuarios de Prueba:

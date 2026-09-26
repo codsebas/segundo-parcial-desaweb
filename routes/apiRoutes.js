@@ -36,4 +36,15 @@ router.post('/subastas/:id/pujas', authRequired, pujasController.registrarPuja);
 router.get('/subastas/:id/pujas', pujasController.getHistorialPujas);
 router.get('/notificaciones', authRequired, pujasController.getMisNotificaciones);
 
+// Tarea programada (Cron) para cierre automático e idempotente de subastas vencidas
+const { procesarSubastasVencidas } = require('../services/subastaService');
+router.get('/cron/cerrar-subastas', async (req, res) => {
+  try {
+    await procesarSubastasVencidas();
+    return res.status(200).json({ status: 'success', message: 'Verificación de subastas vencidas ejecutada.' });
+  } catch (err) {
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 module.exports = router;
