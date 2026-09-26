@@ -11,8 +11,8 @@
 ---
 
 ## 🌐 Enlaces Oficiales del Proyecto
-- **Sitio Web Desplegado en Producción (Vercel):** [https://segundo-parcial-desaweb.vercel.app](https://segundo-parcial-desaweb.vercel.app) *(o URL generada tras el deploy en Vercel)*
-- **Documentación Swagger / OpenAPI 3.0:** [https://segundo-parcial-desaweb.vercel.app/api-docs](https://segundo-parcial-desaweb.vercel.app/api-docs) (también accesible localmente en `/api-docs` y `/swagger`)
+- **Sitio Web Desplegado en Producción (Vercel):** [https://segundo-parcial-desaweb.vercel.app/](https://segundo-parcial-desaweb.vercel.app/)
+- **Documentación Swagger / OpenAPI 3.0:** [https://segundo-parcial-desaweb.vercel.app/api-docs/](https://segundo-parcial-desaweb.vercel.app/api-docs/) (también accesible localmente en `/api-docs` y `/swagger`)
 - **Repositorio Oficial en GitHub:** [https://github.com/codsebas/segundo-parcial-desaweb.git](https://github.com/codsebas/segundo-parcial-desaweb.git)
 
 ---
@@ -125,7 +125,7 @@ node seed.js
 npm test
 # o bien: node test/api.test.js
 ```
-*(Verifica 11 casos de prueba: health, catálogos, login, perfil protegido, catálogo de subastas, subasta live, rechazo de ofertas < base, error de referencia 400, manejo de sintaxis y bloqueo de anónimos).*
+*(Verifica 20 casos de prueba integrales: health, catálogos, login, perfil protegido, catálogo de subastas, subasta live, rechazo de ofertas < base, error de referencia 400, manejo de sintaxis, bloqueo de anónimos, ofertas cruzadas concurrentes multiusuario, transición de badges GANANDO/SUPERADO en tiempo real, cron de cierre de subastas y guardas de integridad en edición de vehículos).*
 
 ### 5. Iniciar la Aplicación:
 ```bash
